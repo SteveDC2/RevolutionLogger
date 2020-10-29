@@ -3,12 +3,12 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "inc/hw_ints.h"
+//#include "inc/hw_ints.h"
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "inc/hw_gpio.h"
-#include "inc/hw_uart.h"
-#include "inc/hw_sysctl.h"
+//#include "inc/hw_uart.h"
+//#include "inc/hw_sysctl.h"
 #include "driverlib/debug.h"
 #include "driverlib/fpu.h"
 #include "driverlib/pin_map.h"
@@ -44,41 +44,6 @@
 #include "Tiva.h"
 #include "Tiva.h"
 
-void ProcessCounterTrigger()
-{
-    static uint64_t LastTimerValue = 0;
-    uint64_t CurrentTimerValue;
-    uint64_t Delta;
-    char Temp[32];
-
-    CurrentTimerValue = TimerValueGet64(IR_TIMER_BASE);
-    Delta = (CurrentTimerValue - LastTimerValue);
-    LastTimerValue = CurrentTimerValue;
-    sprintf((char*)Temp, "%15llu\n", Delta);
-    USBSerial_SendMessage((unsigned char *)Temp);
-}
-
-void PortFIntHandler()
-{
-    uint32_t status=0;
-
-    status = GPIOIntStatus(GPIO_PORTF_BASE,true);
-    GPIOIntClear(GPIO_PORTF_BASE,status);
-
-    if( (status & GPIO_INT_PIN_4) == GPIO_INT_PIN_4)
-    {
-      //Then there was a pin4 interrupt i.e. the push button
-        ProcessCounterTrigger();
-    }
-
-    if( (status & GPIO_INT_PIN_5) == GPIO_INT_PIN_5)
-    {
-      //Then there was a pin5 interrupt
-      //etc...
-    }
-}
-
-
 //--------------------------------------------------------------------------------------------------
 // ConfigurePins
 //--------------------------------------------------------------------------------------------------
@@ -105,14 +70,20 @@ void ConfigurePins(void)
 //    MAP_GPIOPinWrite(PWR_EN_VAR1, 0);
     MAP_GPIOPinTypeGPIOOutput(LED_BASE, RED_LED|GREEN_LED|BLUE_LED);
 
-    //Enable the Launchpad push button
-    GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_4);
-    GPIOPadConfigSet(GPIO_PORTF_BASE,GPIO_PIN_4,GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
+
+    MAP_GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, GPIO_PIN_2 | GPIO_PIN_3);
+
+    //Enable the Launchpad push buttons
+    GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_0 | GPIO_PIN_4);
+    GPIOPadConfigSet(GPIO_PORTF_BASE,GPIO_PIN_0 | GPIO_PIN_4,GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
+    //Enable the sensor input
+    GPIOPinTypeGPIOInput(GPIO_PORTA_BASE, GPIO_PIN_7 | GPIO_PIN_6);
+    GPIOPadConfigSet(GPIO_PORTA_BASE,GPIO_PIN_7 | GPIO_PIN_6,GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
     //Enable the interrupts for the GPIO
-    GPIOIntTypeSet(GPIO_PORTF_BASE,GPIO_PIN_4,GPIO_FALLING_EDGE);
-    GPIOIntRegister(GPIO_PORTF_BASE,PortFIntHandler);
-    GPIOIntEnable(GPIO_PORTF_BASE, GPIO_INT_PIN_4);
-    GPIOIntClear(GPIO_PORTF_BASE, GPIO_INT_PIN_4);
+    GPIOIntTypeSet(GPIO_PORTA_BASE,GPIO_PIN_7 | GPIO_PIN_6,GPIO_FALLING_EDGE);
+    GPIOIntRegister(GPIO_PORTA_BASE,PortAIntHandler);
+    GPIOIntClear(GPIO_PORTA_BASE, GPIO_INT_PIN_7 | GPIO_INT_PIN_6);
+    GPIOIntEnable(GPIO_PORTA_BASE, GPIO_INT_PIN_7 | GPIO_INT_PIN_6);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -216,13 +187,14 @@ void Init_PeripheralInit(void)
     //Make sure a USB disconnect is triggered
     USBSerial_Disconnect();
 
+    ConfigureTimer();
+
     ConfigurePins();
 
     EEPROM_Initialize();
 
     Init_ReadEEPROMDefaults();
 
-    ConfigureTimer();
 
     //Make sure EEPROM read first (Init_ReadEEPROMDefaults) since sets the USB descriptor serial number, otherwise 0 will be used
     USBSerial_ConfigureUSB();

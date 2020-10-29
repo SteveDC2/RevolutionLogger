@@ -31,10 +31,11 @@ extern char CommandBuffer[COMMAND_BUFFER_SIZE];
 extern uint8_t CommandCount;
 extern uint8_t CommandWritePointer;
 extern uint8_t CommandReadPointer;
+extern volatile bool USBConnected;
 
 
 //USB transmit timeout before assuming receiver has closed/died
-#define TXDEFAULTTIMEOUT      (5 * SYSTICKS_PER_SECOND)
+#define TXDEFAULTTIMEOUT      (2 * SYSTICKS_PER_SECOND)
 
 //*****************************************************************************
 //
